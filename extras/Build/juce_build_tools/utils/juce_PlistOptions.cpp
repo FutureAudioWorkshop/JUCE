@@ -30,7 +30,7 @@ namespace build_tools
     //==============================================================================
     static bool keyFoundAndNotSequentialDuplicate (XmlElement& xml, const String& key)
     {
-        forEachXmlChildElementWithTagName (xml, element, "key")
+        for (auto* element : xml.getChildWithTagNameIterator ("key"))
         {
             if (element->getAllSubText().trim().equalsIgnoreCase (key))
             {
@@ -134,9 +134,7 @@ namespace build_tools
                 addPlistDictionaryKey (*dict, "NSBluetoothPeripheralUsageDescription", bluetoothPermissionText); // needed for pre iOS 13.0
 
             addPlistDictionaryKey (*dict, "LSRequiresIPhoneOS", true);
-
-            if (type != ProjectType::Target::AudioUnitv3PlugIn)
-                addPlistDictionaryKey (*dict, "UIViewControllerBasedStatusBarAppearance", false);
+            addPlistDictionaryKey (*dict, "UIViewControllerBasedStatusBarAppearance", true);
 
             if (shouldAddStoryboardToProject)
                 addPlistDictionaryKey (*dict, "UILaunchStoryboardName", storyboardName);
@@ -159,10 +157,13 @@ namespace build_tools
         addPlistDictionaryKey (*dict, "CFBundleDisplayName",         projectName);
         addPlistDictionaryKey (*dict, "CFBundlePackageType",         getXcodePackageType (type));
         addPlistDictionaryKey (*dict, "CFBundleSignature",           getXcodeBundleSignature (type));
-        addPlistDictionaryKey (*dict, "CFBundleShortVersionString",  version);
-        addPlistDictionaryKey (*dict, "CFBundleVersion",             version);
+        addPlistDictionaryKey (*dict, "CFBundleShortVersionString",  marketingVersion);
+        addPlistDictionaryKey (*dict, "CFBundleVersion",             currentProjectVersion);
         addPlistDictionaryKey (*dict, "NSHumanReadableCopyright",    companyCopyright);
         addPlistDictionaryKey (*dict, "NSHighResolutionCapable", true);
+
+        if (applicationCategory.isNotEmpty())
+            addPlistDictionaryKey (*dict, "LSApplicationCategoryType", applicationCategory);
 
         auto replacedDocExtensions = StringArray::fromTokens (replacePreprocessorDefs (allPreprocessorDefs,
                                                                                        documentExtensions), ",", {});
@@ -201,16 +202,14 @@ namespace build_tools
         if (documentBrowserEnabled)
             addPlistDictionaryKey (*dict, "UISupportsDocumentBrowser", true);
 
-        if (statusBarHidden && type != ProjectType::Target::AudioUnitv3PlugIn)
-            addPlistDictionaryKey (*dict, "UIStatusBarHidden", true);
-
         if (iOS)
         {
             if (type != ProjectType::Target::AudioUnitv3PlugIn)
             {
-                // Forcing full screen disables the split screen feature and prevents error ITMS-90475
-                addPlistDictionaryKey (*dict, "UIRequiresFullScreen", true);
-                addPlistDictionaryKey (*dict, "UIStatusBarHidden", true);
+                if (statusBarHidden)
+                    addPlistDictionaryKey (*dict, "UIStatusBarHidden", true);
+
+                addPlistDictionaryKey (*dict, "UIRequiresFullScreen", requiresFullScreen);
 
                 addIosScreenOrientations (*dict);
                 addIosBackgroundModes (*dict);
@@ -302,7 +301,7 @@ namespace build_tools
         {
             addPlistDictionaryKey (*dict, "sandboxSafe", true);
         }
-        else
+        else if (! suppressResourceUsage)
         {
             dict->createNewChildElement ("key")->addTextElement ("resourceUsage");
             auto* resourceUsageDict = dict->createNewChildElement ("dict");
@@ -344,7 +343,10 @@ namespace build_tools
         auto* tagsArray = componentDict->createNewChildElement ("array");
 
         tagsArray->createNewChildElement ("string")
-            ->addTextElement (isPluginSynth ? "Synth" : "Effects");
+                 ->addTextElement (isPluginSynth ? "Synth" : "Effects");
+
+        if (auMainType.removeCharacters ("'") == "aumi")
+            tagsArray->createNewChildElement ("string")->addTextElement ("MIDI");
 
         return { plistKey, plistEntry };
     }

@@ -47,6 +47,35 @@
 
 #include "native/juce_MidiDataConcatenator.h"
 
+#include "midi_io/ump/juce_UMPProtocols.h"
+#include "midi_io/ump/juce_UMPUtils.h"
+#include "midi_io/ump/juce_UMPacket.h"
+#include "midi_io/ump/juce_UMPSysEx7.h"
+#include "midi_io/ump/juce_UMPView.h"
+#include "midi_io/ump/juce_UMPIterator.h"
+#include "midi_io/ump/juce_UMPackets.h"
+#include "midi_io/ump/juce_UMPFactory.h"
+#include "midi_io/ump/juce_UMPConversion.h"
+#include "midi_io/ump/juce_UMPMidi1ToBytestreamTranslator.h"
+#include "midi_io/ump/juce_UMPMidi1ToMidi2DefaultTranslator.h"
+#include "midi_io/ump/juce_UMPConverters.h"
+#include "midi_io/ump/juce_UMPDispatcher.h"
+#include "midi_io/ump/juce_UMPReceiver.h"
+#include "midi_io/ump/juce_UMPBytestreamInputHandler.h"
+#include "midi_io/ump/juce_UMPU32InputHandler.h"
+
+#include "midi_io/ump/juce_UMPUtils.cpp"
+#include "midi_io/ump/juce_UMPView.cpp"
+#include "midi_io/ump/juce_UMPSysEx7.cpp"
+#include "midi_io/ump/juce_UMPMidi1ToMidi2DefaultTranslator.cpp"
+
+#include "midi_io/ump/juce_UMPTests.cpp"
+
+namespace juce
+{
+namespace ump = universal_midi_packets;
+}
+
 //==============================================================================
 #if JUCE_MAC
  #define Point CarbonDummyPointName
@@ -58,7 +87,7 @@
  #undef Component
 
  #include "native/juce_mac_CoreAudio.cpp"
- #include "native/juce_mac_CoreMidi.cpp"
+ #include "native/juce_mac_CoreMidi.mm"
 
 #elif JUCE_IOS
  #import <AudioToolbox/AudioToolbox.h>
@@ -70,7 +99,7 @@
  #endif
 
  #include "native/juce_ios_Audio.cpp"
- #include "native/juce_mac_CoreMidi.cpp"
+ #include "native/juce_mac_CoreMidi.mm"
 
 //==============================================================================
 #elif JUCE_WINDOWS
@@ -133,7 +162,7 @@
  #endif
 
 //==============================================================================
-#elif JUCE_LINUX
+#elif JUCE_LINUX || JUCE_BSD
  #if JUCE_ALSA
   /* Got an include error here? If so, you've either not got ALSA installed, or you've
      not got your paths set up correctly to find its header files.
@@ -160,7 +189,7 @@
   #include "native/juce_linux_JackAudio.cpp"
  #endif
 
- #if JUCE_BELA
+ #if (JUCE_LINUX && JUCE_BELA)
   /* Got an include error here? If so, you've either not got the bela headers
      installed, or you've not got your paths set up correctly to find its header
      files.

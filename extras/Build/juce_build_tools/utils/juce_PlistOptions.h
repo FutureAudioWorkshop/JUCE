@@ -59,8 +59,11 @@ namespace build_tools
 
         File iconFile;
         String projectName;
-        String version;
+        String marketingVersion;
+        String currentProjectVersion;
         String companyCopyright;
+
+        String applicationCategory;
 
         StringPairArray allPreprocessorDefs;
         String documentExtensions;
@@ -68,6 +71,7 @@ namespace build_tools
         bool fileSharingEnabled                 = false;
         bool documentBrowserEnabled             = false;
         bool statusBarHidden                    = false;
+        bool requiresFullScreen                 = false;
         bool backgroundAudioEnabled             = false;
         bool backgroundBleEnabled               = false;
         bool pushNotificationsEnabled           = false;
@@ -89,6 +93,7 @@ namespace build_tools
         String auMainType;
         bool isAuSandboxSafe                    = false;
         bool isPluginSynth                      = false;
+        bool suppressResourceUsage              = false;
 
     private:
         void write (MemoryOutputStream&) const;

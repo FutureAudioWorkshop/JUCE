@@ -35,7 +35,7 @@
 #define JUCE_CORE_INCLUDE_COM_SMART_PTR 1
 #define JUCE_EVENTS_INCLUDE_WIN32_MESSAGE_WINDOW 1
 
-#if JUCE_USE_WINRT_MIDI || JUCE_USE_WIN_WEBVIEW2
+#if JUCE_USE_WINRT_MIDI
  #define JUCE_EVENTS_INCLUDE_WINRT_WRAPPER 1
 #endif
 
@@ -49,7 +49,7 @@
  #import <IOKit/hid/IOHIDKeys.h>
  #import <IOKit/pwr_mgt/IOPMLib.h>
 
-#elif JUCE_LINUX
+#elif JUCE_LINUX || JUCE_BSD
  #include <unistd.h>
 #endif
 
@@ -73,15 +73,11 @@
 
  #include "native/juce_osx_MessageQueue.h"
 
- JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wundeclared-selector")
-
  #if JUCE_MAC
   #include "native/juce_mac_MessageManager.mm"
  #else
   #include "native/juce_ios_MessageManager.mm"
  #endif
-
- JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
 #elif JUCE_WINDOWS
  #include "native/juce_win32_Messaging.cpp"
@@ -89,7 +85,7 @@
   #include "native/juce_win32_WinRTWrapper.cpp"
  #endif
 
-#elif JUCE_LINUX
+#elif JUCE_LINUX || JUCE_BSD
  #include "native/juce_linux_Messaging.cpp"
 
 #elif JUCE_ANDROID

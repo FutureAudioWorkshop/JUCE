@@ -82,6 +82,8 @@ void LatestVersionCheckerAndUpdater::run()
         return "windows";
        #elif JUCE_LINUX
         return "linux";
+       #elif JUCE_BSD
+        return "bsd";
        #else
         jassertfalse;
         return "Unknown";
@@ -236,12 +238,17 @@ private:
 
 void LatestVersionCheckerAndUpdater::askUserForLocationToDownload (const VersionInfo::Asset& asset)
 {
-    FileChooser chooser ("Please select the location into which you would like to install the new version",
-                         { getAppSettings().getStoredPath (Ids::jucePath, TargetOS::getThisOS()).get() });
+    chooser = std::make_unique<FileChooser> ("Please select the location into which you would like to install the new version",
+                                             File { getAppSettings().getStoredPath (Ids::jucePath, TargetOS::getThisOS()).get() });
+    auto flags = FileBrowserComponent::openMode
+               | FileBrowserComponent::canSelectDirectories;
 
-    if (chooser.browseForDirectory())
+    chooser->launchAsync (flags, [this, asset] (const FileChooser& fc)
     {
-        auto targetFolder = chooser.getResult();
+        auto targetFolder = fc.getResult();
+
+        if (targetFolder == File{})
+            return;
 
         // By default we will install into 'targetFolder/JUCE', but we should install into
         // 'targetFolder' if that is an existing JUCE directory.
@@ -257,6 +264,15 @@ void LatestVersionCheckerAndUpdater::askUserForLocationToDownload (const Version
 
         auto targetFolderPath = targetFolder.getFullPathName();
 
+        WeakReference<LatestVersionCheckerAndUpdater> parent { this };
+        auto callback = ModalCallbackFunction::create ([parent, asset, targetFolder] (int result)
+        {
+            if (parent == nullptr || result == 0)
+                return;
+
+            parent->downloadAndInstall (asset, targetFolder);
+        });
+
         if (willOverwriteJuceFolder)
         {
             if (targetFolder.getChildFile (".git").isDirectory())
@@ -267,24 +283,32 @@ void LatestVersionCheckerAndUpdater::askUserForLocationToDownload (const Version
                 return;
             }
 
-            if (! AlertWindow::showOkCancelBox (AlertWindow::WarningIcon, "Overwrite Existing JUCE Folder?",
-                                                "Do you want to replace the folder\n\n" + targetFolderPath + "\n\nwith the latest version from juce.com?\n\n"
-                                                "This will move the existing folder to " + targetFolderPath + "_old."))
-            {
-                return;
-            }
+            AlertWindow::showOkCancelBox (AlertWindow::WarningIcon,
+                                          "Overwrite Existing JUCE Folder?",
+                                          "Do you want to replace the folder\n\n" + targetFolderPath + "\n\nwith the latest version from juce.com?\n\n"
+                                              "This will move the existing folder to " + targetFolderPath + "_old.\n\n"
+                                              "Replacing the folder that contains the currently running Projucer executable may not work on Windows.",
+                                          {},
+                                          {},
+                                          nullptr,
+                                          callback);
+            return;
         }
-        else if (targetFolder.exists())
+
+        if (targetFolder.exists())
         {
-            if (! AlertWindow::showOkCancelBox (AlertWindow::WarningIcon, "Existing File Or Directory",
-                                                "Do you want to move\n\n" + targetFolderPath + "\n\nto\n\n" + targetFolderPath + "_old?"))
-            {
-                return;
-            }
+            AlertWindow::showOkCancelBox (AlertWindow::WarningIcon,
+                                          "Existing File Or Directory",
+                                          "Do you want to move\n\n" + targetFolderPath + "\n\nto\n\n" + targetFolderPath + "_old?",
+                                          {},
+                                          {},
+                                          nullptr,
+                                          callback);
+            return;
         }
 
         downloadAndInstall (asset, targetFolder);
-    }
+    });
 }
 
 void LatestVersionCheckerAndUpdater::askUserAboutNewVersion (const String& newVersionString,
@@ -443,7 +467,7 @@ private:
         if (threadShouldExit())
             return Result::fail ("Cancelled");
 
-       #if JUCE_LINUX || JUCE_MAC
+       #if JUCE_LINUX || JUCE_BSD || JUCE_MAC
         r = setFilePermissions (unzipTarget.folder, zip);
 
         if (r.failed())
@@ -501,10 +525,10 @@ private:
 
 static void restartProcess (const File& targetFolder)
 {
-   #if JUCE_MAC || JUCE_LINUX
+   #if JUCE_MAC || JUCE_LINUX || JUCE_BSD
     #if JUCE_MAC
      auto newProcess = targetFolder.getChildFile ("Projucer.app").getChildFile ("Contents").getChildFile ("MacOS").getChildFile ("Projucer");
-    #elif JUCE_LINUX
+    #elif JUCE_LINUX || JUCE_BSD
      auto newProcess = targetFolder.getChildFile ("Projucer");
     #endif
 

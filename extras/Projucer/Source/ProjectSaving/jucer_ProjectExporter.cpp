@@ -121,6 +121,7 @@ ProjectExporter::ExporterTypeInfo ProjectExporter::getTypeInfoForExporter (const
     if (iter != typeInfos.end())
         return *iter;
 
+    jassertfalse;
     return {};
 }
 
@@ -130,7 +131,7 @@ ProjectExporter::ExporterTypeInfo ProjectExporter::getCurrentPlatformExporterTyp
      return ProjectExporter::getTypeInfoForExporter (XcodeProjectExporter::getValueTreeTypeNameMac());
     #elif JUCE_WINDOWS
      return ProjectExporter::getTypeInfoForExporter (MSVCProjectExporterVC2019::getValueTreeTypeName());
-    #elif JUCE_LINUX
+    #elif JUCE_LINUX || JUCE_BSD
      return ProjectExporter::getTypeInfoForExporter (MakefileProjectExporter::getValueTreeTypeName());
     #else
      #error "unknown platform!"
@@ -410,11 +411,12 @@ StringPairArray ProjectExporter::getAllPreprocessorDefs (const BuildConfiguratio
 {
     auto defs = mergePreprocessorDefs (config.getAllPreprocessorDefs(),
                                        parsePreprocessorDefs (getExporterPreprocessorDefsString()));
+
     addDefaultPreprocessorDefs (defs);
     addTargetSpecificPreprocessorDefs (defs, targetType);
 
     if (! project.shouldUseAppConfig())
-        defs = mergePreprocessorDefs (defs, project.getAppConfigDefs());
+        defs = mergePreprocessorDefs (project.getAppConfigDefs(), defs);
 
     return defs;
 }
@@ -465,8 +467,8 @@ void ProjectExporter::addDefaultPreprocessorDefs (StringPairArray& defs) const
 String ProjectExporter::replacePreprocessorTokens (const ProjectExporter::BuildConfiguration& config,
                                                    const String& sourceString) const
 {
-    return build_tools::replacePreprocessorDefs (getAllPreprocessorDefs (config,
-                                                 build_tools::ProjectType::Target::unspecified), sourceString);
+    return build_tools::replacePreprocessorDefs (getAllPreprocessorDefs (config, build_tools::ProjectType::Target::unspecified),
+                                                 sourceString);
 }
 
 void ProjectExporter::copyMainGroupFromProject()

@@ -38,7 +38,10 @@ struct JuceMainMenuBarHolder : private DeletedAtShutdown
 
         auto appMenu = [[NSMenu alloc] initWithTitle: nsStringLiteral ("Apple")];
 
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wundeclared-selector")
         [NSApp performSelector: @selector (setAppleMenu:) withObject: appMenu];
+        JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
         [mainMenuBar setSubmenu: appMenu forItem: item];
         [appMenu release];
 
@@ -282,9 +285,11 @@ public:
         }
         else
         {
+            JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wundeclared-selector")
             auto item = [[NSMenuItem alloc] initWithTitle: text
                                                    action: @selector (menuItemInvoked:)
                                             keyEquivalent: nsEmptyString()];
+            JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
             [item setTag: topLevelIndex];
             [item setEnabled: i.isEnabled];
@@ -515,7 +520,10 @@ private:
         {
             addIvar<JuceMainMenuHandler*> ("owner");
 
+            JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wundeclared-selector")
             addMethod (@selector (menuItemInvoked:),  menuItemInvoked, "v@:@");
+            JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
             addMethod (@selector (menuNeedsUpdate:),  menuNeedsUpdate, "v@:@");
 
             addProtocol (@protocol (NSMenuDelegate));
@@ -529,12 +537,43 @@ private:
         }
 
     private:
+        /*  Returns true if and only if the peer handles the event. */
+        static bool tryPassingKeyEventToPeer (NSMenuItem* item)
+        {
+            auto* e = [NSApp currentEvent];
+
+            if ([e type] != NSEventTypeKeyDown && [e type] != NSEventTypeKeyUp)
+                return false;
+
+            const auto triggeredByShortcut = [[e charactersIgnoringModifiers] isEqualToString: [item keyEquivalent]]
+                                             && ([e modifierFlags] & ~(NSUInteger) 0xFFFF) == [item keyEquivalentModifierMask];
+
+            if (! triggeredByShortcut)
+                return false;
+
+            if (auto* focused = juce::Component::getCurrentlyFocusedComponent())
+            {
+                if (auto* peer = dynamic_cast<juce::NSViewComponentPeer*> (focused->getPeer()))
+                {
+                    if ([e type] == NSEventTypeKeyDown)
+                        peer->redirectKeyDown (e);
+                    else
+                        peer->redirectKeyUp (e);
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         static void menuItemInvoked (id self, SEL, NSMenuItem* item)
         {
-            auto owner = getIvar<JuceMainMenuHandler*> (self, "owner");
+            if (tryPassingKeyEventToPeer (item))
+                return;
 
             if (auto* juceItem = getJuceClassFromNSObject<PopupMenu::Item> ([item representedObject]))
-                owner->invoke (*juceItem, static_cast<int> ([item tag]));
+                getIvar<JuceMainMenuHandler*> (self, "owner")->invoke (*juceItem, static_cast<int> ([item tag]));
         }
 
         static void menuNeedsUpdate (id self, SEL, NSMenu* menu)

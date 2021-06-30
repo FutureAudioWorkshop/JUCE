@@ -59,15 +59,13 @@ namespace juce
 #endif
 
 //==============================================================================
-#if JUCE_IOS || JUCE_LINUX
+#if JUCE_IOS || JUCE_LINUX || JUCE_BSD
   /** This will try to break into the debugger if the app is currently being debugged.
       If called by an app that's not being debugged, the behaviour isn't defined - it may
       crash or not, depending on the platform.
       @see jassert()
   */
   #define JUCE_BREAK_IN_DEBUGGER        { ::kill (0, SIGTRAP); }
-#elif JUCE_MAC && JUCE_CLANG && JUCE_ARM
-  #define JUCE_BREAK_IN_DEBUGGER        { __builtin_debugtrap(); }
 #elif JUCE_MSVC
   #ifndef __INTEL_COMPILER
     #pragma intrinsic (__debugbreak)
@@ -79,6 +77,8 @@ namespace juce
   #else
    #define JUCE_BREAK_IN_DEBUGGER       { asm ("int $3"); }
   #endif
+#elif JUCE_ARM && JUCE_MAC
+  #define JUCE_BREAK_IN_DEBUGGER        { __builtin_debugtrap(); }
 #elif JUCE_ANDROID
   #define JUCE_BREAK_IN_DEBUGGER        { __builtin_trap(); }
 #else
@@ -192,7 +192,8 @@ namespace juce
 #define JUCE_STRINGIFY(item)  JUCE_STRINGIFY_MACRO_HELPER (item)
 
 //==============================================================================
-/** This is a shorthand macro for declaring stubs for a class's copy constructor and operator=.
+/** This is a shorthand macro for deleting a class's copy constructor and
+    copy assignment operator.
 
     For example, instead of
     @code
@@ -219,6 +220,13 @@ namespace juce
 #define JUCE_DECLARE_NON_COPYABLE(className) \
     className (const className&) = delete;\
     className& operator= (const className&) = delete;
+
+/** This is a shorthand macro for deleting a class's move constructor and
+    move assignment operator.
+*/
+#define JUCE_DECLARE_NON_MOVEABLE(className) \
+    className (className&&) = delete;\
+    className& operator= (className&&) = delete;
 
 /** This is a shorthand way of writing both a JUCE_DECLARE_NON_COPYABLE and
     JUCE_LEAK_DETECTOR macro for a class.
@@ -327,7 +335,7 @@ namespace juce
 #elif ! defined (JUCE_MODAL_LOOPS_PERMITTED)
  /** Some operating environments don't provide a modal loop mechanism, so this flag can be
      used to disable any functions that try to run a modal loop. */
- #define JUCE_MODAL_LOOPS_PERMITTED 1
+ #define JUCE_MODAL_LOOPS_PERMITTED 0
 #endif
 
 //==============================================================================

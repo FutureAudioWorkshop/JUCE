@@ -1288,6 +1288,7 @@ PopupMenu::Options LookAndFeel_V2::getOptionsForComboBoxPopupMenu (ComboBox& box
 {
     return PopupMenu::Options().withTargetComponent (&box)
                                .withItemThatMustBeVisible (box.getSelectedId())
+                               .withInitiallySelectedItem (box.getSelectedId())
                                .withMinimumWidth (box.getWidth())
                                .withMaximumNumColumns (1)
                                .withStandardItemHeight (label.getHeight());
@@ -1746,6 +1747,9 @@ Button* LookAndFeel_V2::createFilenameComponentBrowseButton (const String& text)
 void LookAndFeel_V2::layoutFilenameComponent (FilenameComponent& filenameComp,
                                               ComboBox* filenameBox, Button* browseButton)
 {
+    if (browseButton == nullptr || filenameBox == nullptr)
+        return;
+
     browseButton->setSize (80, filenameComp.getHeight());
 
     if (auto* tb = dynamic_cast<TextButton*> (browseButton))
